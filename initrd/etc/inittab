@@ -1,0 +1,25 @@
+#!/bin/sh
+# BusyBox init inittab
+
+# Mounts
+::sysinit:/bin/mount -t proc proc /proc
+::sysinit:/bin/mount -t sysfs sysfs /sys
+::sysinit:/bin/mount -t tmpfs tmpfs /dev
+::sysinit:/bin/mount -t tmpfs tmpfs /tmp
+
+# Bring up console device
+::sysinit:/bin/mknod /dev/console c 5 1
+::sysinit:/bin/mknod /dev/null c 1 3
+::sysinit:/bin/mknod /dev/zero c 1 5
+::sysinit:/bin/mknod /dev/ttyS0 c 4 64
+::sysinit:/bin/mknod /dev/tty c 5 0
+
+# Popul devices
+::sysinit:/sbin/mdev -s 2>/dev/null || true
+
+# Respawn shell on console
+console::respawn:/bin/sh
+
+# Respawn shell on serial  
+::respawn:/bin/getty -L ttyS0 115200 vt100
+
