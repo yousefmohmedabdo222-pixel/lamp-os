@@ -1,0 +1,128 @@
+#!/bin/sh
+# LAMP OS - Network Configuration Tool
+
+show_network_info() {
+    echo "=== Network Interfaces ==="
+    ip addr show 2>/dev/null || ifconfig
+    echo ""
+}
+
+configure_interface() {
+    echo "Available network interfaces:"
+    ip link show 2>/dev/null | grep "^[0-9]" | awk '{print $2}' | tr -d ':'
+    echo ""
+    echo -n "Enter interface name (e.g., eth0): "
+    read iface
+    
+    echo "Configure $iface with:"
+    echo "1) DHCP (automatic)"
+    echo "2) Static IP"
+    echo ""
+    echo -n "Enter choice [1-2]: "
+    read method
+    
+    case $method in
+        1)
+            echo "Attempting to get DHCP address on $iface..."
+            ip link set $iface up 2>/dev/null || ifconfig $iface up
+            dhclient $iface 2>/dev/null || udhcpc -i $iface
+            show_network_info
+            ;;
+        2)
+            echo -n "Enter IP address (e.g., 192.168.1.100): "
+            read ip_addr
+            echo -n "Enter netmask (e.g., 255.255.255.0): "
+            read netmask
+            
+            ip addr add $ip_addr/$netmask dev $iface 2>/dev/null
+            ip link set $iface up 2>/dev/null
+            
+            echo "Configured $iface with $ip_addr/$netmask"
+            show_network_info
+            ;;
+        *)
+            echo "Invalid choice"
+            ;;
+    esac
+}
+
+test_connectivity() {
+    echo -n "Enter hostname or IP to ping: "
+    read target
+    
+    echo "Pinging $target..."
+    ping -c 3 $target
+}
+
+show_dns_config() {
+    echo "=== DNS Configuration ==="
+    cat /etc/resolv.conf 2>/dev/null || echo "No DNS configuration found"
+    echo ""
+}
+
+set_dns() {
+    echo -n "Enter DNS server (e.g., 8.8.8.8): "
+    read dns_server
+    
+    echo "nameserver $dns_server" > /etc/resolv.conf
+    echo "DNS server set to $dns_server"
+    show_dns_config
+}
+
+# Main menu
+show_banner() {
+    echo ""
+    echo "╔════════════════════════════════════════╗"
+    echo "║   LAMP OS - Network Configuration      ║"
+    echo "╚════════════════════════════════════════╝"
+    echo ""
+}
+
+show_menu() {
+    echo "Options:"
+    echo "1) Show network information"
+    echo "2) Configure interface"
+    echo "3) Test connectivity"
+    echo "4) Show DNS config"
+    echo "5) Set DNS server"
+    echo "6) Return to main menu"
+    echo ""
+}
+
+show_banner
+
+while true; do
+    show_menu
+    echo -n "Enter choice [1-6]: "
+    read choice
+    
+    case $choice in
+        1)
+            echo ""
+            show_network_info
+            ;;
+        2)
+            echo ""
+            configure_interface
+            ;;
+        3)
+            echo ""
+            test_connectivity
+            echo ""
+            ;;
+        4)
+            echo ""
+            show_dns_config
+            ;;
+        5)
+            echo ""
+            set_dns
+            ;;
+        6)
+            break
+            ;;
+        *)
+            echo "Invalid choice"
+            ;;
+    esac
+done

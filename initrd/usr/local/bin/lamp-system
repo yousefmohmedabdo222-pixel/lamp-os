@@ -1,0 +1,154 @@
+#!/bin/sh
+# LAMP OS - System Utilities and Maintenance
+
+show_disk_info() {
+    echo "=== Disk Usage ==="
+    df -h
+    echo ""
+}
+
+show_process_monitor() {
+    echo "=== Top Processes (by memory) ==="
+    ps aux --sort=-%mem | head -11
+    echo ""
+}
+
+show_cpu_info() {
+    echo "=== CPU Information ==="
+    echo "Model: $(grep model\ name /proc/cpuinfo | head -1 | cut -d':' -f2)"
+    echo "Cores: $(grep -c ^processor /proc/cpuinfo)"
+    echo "Current load: $(cat /proc/loadavg | awk '{print $1, $2, $3}')"
+    echo ""
+}
+
+show_memory_info() {
+    echo "=== Memory Information ==="
+    cat /proc/meminfo | grep -E "^MemTotal|^MemFree|^MemAvailable"
+    echo ""
+}
+
+system_backup() {
+    echo -n "Enter backup directory (default: /tmp/backup): "
+    read backup_dir
+    backup_dir=${backup_dir:-/tmp/backup}
+    
+    mkdir -p $backup_dir
+    echo "Creating backup in $backup_dir..."
+    
+    # Backup important files
+    tar -czf $backup_dir/system_backup_$(date +%s).tar.gz \
+        /etc \
+        /opt \
+        /usr/local \
+        2>/dev/null
+    
+    echo "✓ Backup completed"
+    ls -lh $backup_dir/*.tar.gz 2>/dev/null | tail -1
+    echo ""
+}
+
+system_cleanup() {
+    echo "Cleaning up temporary files..."
+    rm -rf /tmp/* 2>/dev/null
+    echo "✓ Temp files cleaned"
+    echo ""
+}
+
+show_uptime() {
+    echo "=== System Uptime ==="
+    uptime
+    echo ""
+}
+
+show_kernel_info() {
+    echo "=== Kernel Information ==="
+    uname -a
+    echo ""
+}
+
+diagnose_system() {
+    echo ""
+    echo "╔════════════════════════════════════════╗"
+    echo "║        System Diagnosis Report         ║"
+    echo "╚════════════════════════════════════════╝"
+    echo ""
+    echo "Timestamp: $(date)"
+    echo ""
+    
+    show_kernel_info
+    show_uptime
+    show_cpu_info
+    show_memory_info
+    show_disk_info
+    show_process_monitor
+    
+    echo "=== Network ==="
+    ip addr show 2>/dev/null | grep "inet " || echo "Network configuration not available"
+    echo ""
+}
+
+# Main menu
+show_banner() {
+    echo ""
+    echo "╔════════════════════════════════════════╗"
+    echo "║   LAMP OS - System Utilities           ║"
+    echo "╚════════════════════════════════════════╝"
+    echo ""
+}
+
+show_menu() {
+    echo "Options:"
+    echo "1) Show disk information"
+    echo "2) Show process monitor"
+    echo "3) Show CPU information"
+    echo "4) Show memory information"
+    echo "5) System backup"
+    echo "6) Cleanup temporary files"
+    echo "7) Full system diagnosis"
+    echo "8) Return to main menu"
+    echo ""
+}
+
+show_banner
+
+while true; do
+    show_menu
+    echo -n "Enter choice [1-8]: "
+    read choice
+    
+    case $choice in
+        1)
+            echo ""
+            show_disk_info
+            ;;
+        2)
+            echo ""
+            show_process_monitor
+            ;;
+        3)
+            echo ""
+            show_cpu_info
+            ;;
+        4)
+            echo ""
+            show_memory_info
+            ;;
+        5)
+            echo ""
+            system_backup
+            ;;
+        6)
+            echo ""
+            system_cleanup
+            ;;
+        7)
+            diagnose_system
+            ;;
+        8)
+            break
+            ;;
+        *)
+            echo "Invalid choice"
+            ;;
+    esac
+done

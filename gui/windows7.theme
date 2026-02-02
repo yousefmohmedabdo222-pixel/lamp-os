@@ -1,0 +1,20 @@
+// Windows 7 Theme for IceWM
+// LAMP OS Graphical Interface
+
+[Look]
+LookFeelType = win95
+ColorDialog = rgb:192/192/192
+ColorMenuItemSeparator = rgb:0/0/0
+ColorNormalButton = rgb:192/192/192
+ColorNormalButtonText = rgb:0/0/0
+
+[borders]
+lefBorderX = 2
+topBorderY = 1
+rightBorderX = 2
+botBorderX = 2
+
+[titlebar]
+titleHeight = 24
+textOffset = 4
+thumbHeight = 2

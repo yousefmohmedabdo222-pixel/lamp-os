@@ -1,0 +1,123 @@
+#!/bin/sh
+# LAMP OS - Advanced Startup and Management Script
+
+show_banner() {
+    echo ""
+    echo "╔════════════════════════════════════════╗"
+    echo "║       🪔 LAMP OS - Boot Menu 🪔        ║"
+    echo "╚════════════════════════════════════════╝"
+    echo ""
+}
+
+show_menu() {
+    echo "Select an option:"
+    echo "1) Start GUI (lamp-gui)"
+    echo "2) Interactive Shell"
+    echo "3) System Information"
+    echo "4) Mount Information"
+    echo "5) Process Information"
+    echo "6) Create Test Files"
+    echo "7) Exit to Shell"
+    echo ""
+}
+
+show_system_info() {
+    echo ""
+    echo "=== System Information ==="
+    echo "Kernel: $(cat /proc/version | cut -d' ' -f1-3)"
+    echo "Uptime: $(cat /proc/uptime | cut -d' ' -f1) seconds"
+    echo "Memory: $(cat /proc/meminfo | grep MemTotal | awk '{print $2}') KB"
+    echo "CPUs: $(grep -c ^processor /proc/cpuinfo)"
+    echo ""
+}
+
+show_mount_info() {
+    echo ""
+    echo "=== Mounted Filesystems ==="
+    mount | grep -v "(ro)" | head -10
+    echo ""
+}
+
+show_process_info() {
+    echo ""
+    echo "=== Running Processes ==="
+    ps aux | head -15
+    echo ""
+}
+
+create_test_files() {
+    echo ""
+    echo "Creating test files..."
+    mkdir -p /tmp/test_files
+    
+    echo "Hello from LAMP OS" > /tmp/test_files/hello.txt
+    echo "This is a test file created at $(date)" > /tmp/test_files/info.txt
+    
+    cat > /tmp/test_files/readme.txt << 'EOF'
+LAMP OS Test Files
+==================
+
+This directory contains test files created by the LAMP OS boot manager.
+
+Files:
+- hello.txt: Simple greeting
+- info.txt: Information about when this was created
+- readme.txt: This file
+
+You can use these files to test the filesystem and tools.
+EOF
+    
+    echo "✓ Test files created in /tmp/test_files"
+    ls -lh /tmp/test_files/
+    echo ""
+}
+
+# Main loop
+show_banner
+
+while true; do
+    show_menu
+    echo -n "Enter choice [1-7]: "
+    read choice
+    
+    case $choice in
+        1)
+            echo ""
+            echo "Launching GUI..."
+            if [ -x /opt/lamp-gui/lamp-gui ]; then
+                /opt/lamp-gui/lamp-gui
+            else
+                echo "GUI not found or not executable"
+            fi
+            echo ""
+            ;;
+        2)
+            echo ""
+            echo "Entering interactive shell..."
+            echo "Type 'exit' to return to menu"
+            /bin/sh
+            echo ""
+            ;;
+        3)
+            show_system_info
+            ;;
+        4)
+            show_mount_info
+            ;;
+        5)
+            show_process_info
+            ;;
+        6)
+            create_test_files
+            ;;
+        7)
+            echo ""
+            echo "Exiting to shell..."
+            echo ""
+            exit 0
+            ;;
+        *)
+            echo "Invalid choice. Please try again."
+            ;;
+    esac
+done
