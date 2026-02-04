@@ -13,22 +13,12 @@ JOBS=${JOBS:-$(nproc)}
 echo "Building kernel for ARCH=$TARGET_ARCH CROSS_COMPILE=${CROSS_COMPILE:-<native>}"
 
 if [ ! -d "$KERNEL_DIR" ]; then
-    echo "Kernel source not found at $KERNEL_DIR. Attempting to download linux-6.6..."
-    KERNEL_TAR="${KERNEL_TAR:-$HOME/.cache/lamp-os/linux-6.6.tar.xz}"
-    mkdir -p "$(dirname "$KERNEL_TAR")"
-    if [ -f "$KERNEL_TAR" ]; then
-        echo "Using cached tarball $KERNEL_TAR"
-    else
-        echo "Downloading linux-6.6.tar.xz to $KERNEL_TAR..."
-        curl -L --fail -o "$KERNEL_TAR" https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.tar.xz
-    fi
-    echo "Extracting $KERNEL_TAR to kernel/..."
-    mkdir -p kernel
-    tar -C kernel -xf "$KERNEL_TAR"
-    if [ ! -d "$KERNEL_DIR" ]; then
-        echo "Failed to extract kernel source to $KERNEL_DIR"
-        exit 1
-    fi
+    echo "Kernel sources not found at $KERNEL_DIR. This script will NOT download the kernel automatically."
+    echo "Options:"
+    echo "  1) Place the kernel sources at $KERNEL_DIR and re-run this script to build locally (no network required)."
+    echo "  2) Build the kernel on a development machine and copy the resulting kernel image (e.g. vmlinuz) into ../../iso/boot/ as vmlinuz or vmlinuz-<arch>."
+    echo "  3) If you want automatic downloads, restore the previous behavior (not recommended for offline installers)."
+    exit 1
 fi
 
 pushd "$KERNEL_DIR" >/dev/null

@@ -32,31 +32,31 @@ for f in "${KERNEL_CANDIDATES[@]}"; do
     fi
 done
 
-# If we reached here, no kernel image was found. Attempt to build one.
-# Check for toolchain
-if ! command -v make >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
-    echo "Cannot build kernel: 'make' and 'gcc' are required but not available in PATH." >&2
-    echo "Either install build tools on this machine or build the kernel on a build host and place the kernel image into $ISO_BOOT." >&2
-    exit 1
-fi
-
-# Attempt to call build_kernel.sh (it will download sources if necessary)
+# If we reached here, no kernel image was found. We WILL NOT download the kernel automatically.
+# Prefer included kernel images; if missing, attempt a local build only if kernel sources are present.
 BUILD_SCRIPT="$PROJECT_ROOT/build_kernel.sh"
-if [ ! -x "$BUILD_SCRIPT" ]; then
-    echo "Build helper not found: $BUILD_SCRIPT" >&2
+if [ -d "$PROJECT_ROOT/kernel/linux-6.6" ]; then
+    if ! command -v make >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
+        echo "Kernel sources exist but build tools are absent (make/gcc). Please build the kernel on a development machine and copy the resulting vmlinuz into $ISO_BOOT." >&2
+        exit 1
+    fi
+    if [ ! -x "$BUILD_SCRIPT" ]; then
+        echo "Build helper not found: $BUILD_SCRIPT" >&2
+        exit 1
+    fi
+    echo "Building kernel from local sources (no network will be used)..."
+    (cd "$PROJECT_ROOT" && TARGET_ARCH="$TARGET_ARCH" "$BUILD_SCRIPT")
+
+    # Re-check
+    for f in "${KERNEL_CANDIDATES[@]}"; do
+        if [ -f "$f" ]; then
+            echo "Kernel built and available: $f"
+            exit 0
+        fi
+    done
+    echo "Build completed but kernel image still missing. Check build logs and ensure kernel image was produced under $ISO_BOOT." >&2
+    exit 1
+else
+    echo "No kernel image and no local kernel sources present. To install offline, place a kernel image (vmlinuz) into $ISO_BOOT or provide kernel sources at kernel/linux-6.6 and re-run the installer." >&2
     exit 1
 fi
-
-echo "No kernel found in $ISO_BOOT. Starting build (this may take a long time)..."
-(cd "$PROJECT_ROOT" && TARGET_ARCH="$TARGET_ARCH" "$BUILD_SCRIPT")
-
-# Re-check
-for f in "${KERNEL_CANDIDATES[@]}"; do
-    if [ -f "$f" ]; then
-        echo "Kernel built and available: $f"
-        exit 0
-    fi
-done
-
-echo "Build completed but kernel image still missing. Check build logs and ensure kernel image was produced under $ISO_BOOT." >&2
-exit 1
