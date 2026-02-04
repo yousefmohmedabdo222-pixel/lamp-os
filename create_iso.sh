@@ -7,6 +7,11 @@ OUTNAME="lamp-os-${TARGET_ARCH}.iso"
 
 echo "Creating ISO for ARCH=$TARGET_ARCH -> $OUTNAME"
 
+# Ensure boot files are in iso_build
+mkdir -p iso_build/boot
+cp -a iso/boot/vmlinuz* iso_build/boot/ 2>/dev/null || true
+cp -a iso/boot/initrd.img iso_build/boot/ 2>/dev/null || true
+
 if [ "$TARGET_ARCH" = "x86_64" ]; then
     if command -v grub-mkrescue >/dev/null 2>&1; then
         echo "Using grub-mkrescue to create hybrid BIOS+UEFI ISO"

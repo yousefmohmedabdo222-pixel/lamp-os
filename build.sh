@@ -237,6 +237,29 @@ build_kernel() {
     fi
 }
 
+# Build GUI (Qt-based)
+build_gui() {
+    print_step "Building GUI (Lamp Desktop)"
+    if [ -d "gui" ]; then
+        pushd gui >/dev/null
+        if command -v qmake >/dev/null 2>&1; then
+            qmake
+            make -j$(nproc) || true
+            # Copy the built GUI into the initrd payload
+            if [ -f "lamp-desktop" ]; then
+                mkdir -p ../initrd/opt/lamp-gui
+                cp -v lamp-desktop ../initrd/opt/lamp-gui/ || true
+                status "Copied GUI to initrd/opt/lamp-gui"
+            fi
+        else
+            warning "qmake not found; skipping GUI build"
+        fi
+        popd >/dev/null
+    else
+        warning "gui directory not found"
+    fi
+}
+
 # Build initrd
 build_initrd() {
     print_step "Building Initrd"
@@ -280,6 +303,7 @@ quick_build() {
     check_prerequisites
     setup_directories
     build_kernel
+    build_gui
     build_initrd
     create_iso
     

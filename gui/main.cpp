@@ -42,6 +42,7 @@
 #include <QDateTimeEdit>
 #include <QTimeEdit>
 #include <QDateEdit>
+#include <QSoundEffect>
 
 class LampDesktop : public QMainWindow {
     Q_OBJECT
@@ -80,6 +81,8 @@ protected:
     
 private slots:
     void showStartMenu() {
+        if (startSound.playing()) startSound.stop();
+        startSound.play();
         startMenu->popup(mapToGlobal(QPoint(10, height() - startButton->height() - 10)));
     }
     
@@ -96,6 +99,9 @@ private slots:
     }
     
 private:
+    QSoundEffect startSound;
+    QSoundEffect clickSound;
+
     void setupUI() {
         // إنشاء ويدجت مركزية
         QWidget *centralWidget = new QWidget(this);
@@ -343,6 +349,7 @@ private:
             "}"
         );
         connect(startButton, &QPushButton::clicked, this, &LampDesktop::showStartMenu);
+        connect(startButton, &QPushButton::clicked, [this](){ clickSound.play(); });
         
         startMenu = new QMenu(this);
         startMenu->setStyleSheet(
@@ -365,6 +372,15 @@ private:
         startMenu->addAction("📁 File Manager");
         startMenu->addAction("🌐 Web Browser");
         startMenu->addAction("📝 Text Editor");
+        startMenu->addAction("💿 Install Lamp OS")->connect(startMenu->actions().last(), &QAction::triggered, [this]() {
+            // Launch installer dialog
+            #ifdef QT_WIDGETS_LIB
+            #endif
+            QWidget *parent = this;
+            // Lazy-load installer UI to avoid extra linking burden in tests
+            extern void showInstaller(QWidget* parent);
+            showInstaller(parent);
+        });
         startMenu->addSeparator();
         startMenu->addAction("⚙️ Settings");
         startMenu->addAction("📦 Software Center");
@@ -391,7 +407,7 @@ private:
     }
     
     void setupSystemTray() {
-        QSystemTrayIcon *trayIcon = new QSystemTrayIcon(QIcon(":/icons/tray.png"), this);
+        QSystemTrayIcon *trayIcon = new QSystemTrayIcon(QIcon(":/icons/tray.svg"), this);
         QMenu *trayMenu = new QMenu(this);
         trayMenu->addAction("Show Desktop", this, &LampDesktop::showNormal);
         trayMenu->addAction("Settings", this, [](){ QMessageBox::information(nullptr, "Settings", "Settings will open here"); });
@@ -402,6 +418,12 @@ private:
     }
     
     void setupAnimations() {
+        // Load sounds from resources
+        startSound.setSource(QUrl("qrc:/sounds/start.wav"));
+        startSound.setVolume(0.75);
+        clickSound.setSource(QUrl("qrc:/sounds/click.wav"));
+        clickSound.setVolume(0.6);
+
         QGraphicsOpacityEffect *opacityEffect = new QGraphicsOpacityEffect(this);
         opacityEffect->setOpacity(0.95);
         setGraphicsEffect(opacityEffect);
@@ -461,3 +483,10 @@ int main(int argc, char *argv[]) {
 }
 
 #include "main.moc"
+
+// Optional: show installer without adding direct dependency on class at top-level
+#include "installer.h"
+void showInstaller(QWidget* parent){
+    InstallerDialog dlg(parent);
+    dlg.exec();
+}

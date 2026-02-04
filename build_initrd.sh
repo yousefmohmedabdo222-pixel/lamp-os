@@ -410,7 +410,27 @@ ln -sf busybox bin/wget 2>/dev/null || true
 ln -sf busybox bin/curl 2>/dev/null || true
 ln -sf busybox bin/nc 2>/dev/null || true
 status "Created utility symlinks"
+# Step 7c: System sounds
+echo -e "\n${BLUE}Step 7c: Generating system sounds...${NC}"
+SOUNDS_DIR="opt/sounds"
+if [ ! -d "$SOUNDS_DIR" ] || [ -z "$(ls -A $SOUNDS_DIR 2>/dev/null)" ]; then
+    # Try to generate sounds using embedded Python script
+    if command -v python3 >/dev/null 2>&1 && [ -f "../scripts/generate_sounds.py" ]; then
+        python3 ../scripts/generate_sounds.py "$SOUNDS_DIR"
+        status "Generated system sounds"
+    else
+        warning "Python3 or sound generator not available; skipping sounds"
+    fi
+else
+    status "System sounds already present"
+fi
 
+# Copy sounds into initrd structure
+if [ -d "$SOUNDS_DIR" ]; then
+    mkdir -p usr/share/sounds/lamp
+    cp -a $SOUNDS_DIR/* usr/share/sounds/lamp/ 2>/dev/null || true
+    status "Installed system sounds to usr/share/sounds/lamp" 
+fi
 # Step 8: Create manifest
 echo -e "\n${BLUE}Step 8: Creating manifest...${NC}"
 
