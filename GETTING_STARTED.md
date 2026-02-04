@@ -68,6 +68,8 @@ make --version
 ## بناء نواة Linux مخصصة
 
 ### الخطوة 1: تحميل مصادر النواة
+(ملاحظة: إذا لم تكن مصادر النواة موجودة، فسيحاول `build_kernel.sh` تنزيلها تلقائيًا إلى `~/.cache/lamp-os/` ثم استخراجها.)
+
 ```bash
 cd kernel
 wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.tar.xz

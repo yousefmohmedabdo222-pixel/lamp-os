@@ -13,8 +13,22 @@ JOBS=${JOBS:-$(nproc)}
 echo "Building kernel for ARCH=$TARGET_ARCH CROSS_COMPILE=${CROSS_COMPILE:-<native>}"
 
 if [ ! -d "$KERNEL_DIR" ]; then
-    echo "Kernel source not found at $KERNEL_DIR"
-    exit 1
+    echo "Kernel source not found at $KERNEL_DIR. Attempting to download linux-6.6..."
+    KERNEL_TAR="${KERNEL_TAR:-$HOME/.cache/lamp-os/linux-6.6.tar.xz}"
+    mkdir -p "$(dirname "$KERNEL_TAR")"
+    if [ -f "$KERNEL_TAR" ]; then
+        echo "Using cached tarball $KERNEL_TAR"
+    else
+        echo "Downloading linux-6.6.tar.xz to $KERNEL_TAR..."
+        curl -L --fail -o "$KERNEL_TAR" https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.6.tar.xz
+    fi
+    echo "Extracting $KERNEL_TAR to kernel/..."
+    mkdir -p kernel
+    tar -C kernel -xf "$KERNEL_TAR"
+    if [ ! -d "$KERNEL_DIR" ]; then
+        echo "Failed to extract kernel source to $KERNEL_DIR"
+        exit 1
+    fi
 fi
 
 pushd "$KERNEL_DIR" >/dev/null

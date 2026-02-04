@@ -39,3 +39,7 @@
 
 # debug information files
 *.dwo
+
+# Kernel tarballs and caches (do not commit large kernel archives)
+kernel/*.tar.xz
+.cache/
