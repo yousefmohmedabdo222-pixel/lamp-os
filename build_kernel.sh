@@ -62,16 +62,24 @@ fi
 
 # Try to use a reasonable defconfig
 echo "Using ARCH=$ARCH"
+# Use explicit ARCH and CROSS_COMPILE environment for defconfig and build
 if [ -f "arch/$ARCH/configs/${ARCH}_defconfig" ]; then
     echo "Found ${ARCH}_defconfig, using it"
-    make ${ARCH}_defconfig
+    make ARCH=$ARCH ${ARCH}_defconfig
 else
-    echo "Falling back to defconfig"
-    make defconfig
+    echo "Falling back to defconfig (explicit ARCH)
+    make ARCH=$ARCH defconfig"
+    make ARCH=$ARCH defconfig
 fi
 
-# Build
-make -j${JOBS} bzImage vmlinuz || true
+# Build (explicit ARCH + CROSS_COMPILE if set)
+if [ -n "$CROSS_COMPILE" ]; then
+    make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j${JOBS}
+else
+    make ARCH=$ARCH -j${JOBS}
+fi
+# Attempt to also build common packaged images
+make ARCH=$ARCH bzImage vmlinuz || true
 
 # Detect output kernel image
 KERNEL_IMAGE=""
