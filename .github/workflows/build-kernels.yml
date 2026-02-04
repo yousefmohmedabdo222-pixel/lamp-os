@@ -69,10 +69,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "ci: add built aarch64 kernel image (vmlinuz-aarch64)"
-            # Ensure we are up-to-date and retry push on conflict
-            git fetch origin ${{ github.ref_name }} || true
-            git rebase origin/${{ github.ref_name }} || true
-            git push origin HEAD:${{ github.ref_name }} || (git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }})
+            git push --force-with-lease origin HEAD:${{ github.ref_name }}
           fi
 
   build-riscv64:
@@ -112,9 +109,7 @@ jobs:
               echo "No changes to commit"
             else
               git commit -m "ci: add built riscv64 kernel image (vmlinuz-riscv64)"
-              git fetch origin ${{ github.ref_name }} || true
-              git rebase origin/${{ github.ref_name }} || true
-              git push origin HEAD:${{ github.ref_name }} || (git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }})
+              git push --force-with-lease origin HEAD:${{ github.ref_name }}
             fi
           else
             echo "No riscv64 kernel image produced; continuing" && true
