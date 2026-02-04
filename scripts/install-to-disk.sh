@@ -44,6 +44,15 @@ done
 
 echo "Preparing $TARGET_DEVICE (MBR mode: $USE_MBR)"
 
+# Ensure kernel image exists in iso/boot (will download/build if necessary)
+if [ ! -f /workspaces/lamp-os/iso/boot/vmlinuz ] && [ ! -f /workspaces/lamp-os/iso/boot/vmlinuz-$(uname -m) ]; then
+  echo "No kernel image found in iso/boot. Attempting to ensure kernel image is present (may download and build)..."
+  if ! /workspaces/lamp-os/scripts/ensure_kernel.sh; then
+    echo "Installer requires a kernel image to continue. Please build the kernel or place a kernel image in iso/boot." >&2
+    exit 1
+  fi
+fi
+
 # Unmount any mounted partitions
 umount ${TARGET_DEVICE}?* 2>/dev/null || true
 
