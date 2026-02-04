@@ -78,8 +78,18 @@ if [ -n "$CROSS_COMPILE" ]; then
 else
     make ARCH=$ARCH -j${JOBS}
 fi
-# Attempt to also build common packaged images
-make ARCH=$ARCH bzImage vmlinuz || true
+# Build appropriate packaged image for the architecture (avoid invalid targets like bzImage on arm64/riscv)
+case "$ARCH" in
+    x86|i386|i486|i586|i686)
+        make ARCH=$ARCH bzImage vmlinuz || true
+        ;;
+    arm64|aarch64|riscv)
+        make ARCH=$ARCH Image || true
+        ;;
+    *)
+        make ARCH=$ARCH vmlinux || true
+        ;;
+esac
 
 # Detect output kernel image
 KERNEL_IMAGE=""

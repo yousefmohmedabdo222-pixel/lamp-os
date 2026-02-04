@@ -64,9 +64,16 @@ jobs:
           set -euo pipefail
           git config user.name "$GIT_COMMITTER_NAME"
           git config user.email "$GIT_COMMITTER_EMAIL"
-          git add iso/boot/vmlinuz-aarch64
-          git commit -m "ci: add built aarch64 kernel image (vmlinuz-aarch64)" || echo "No changes to commit"
-          git push origin HEAD:${{ github.ref_name }}
+          git add iso/boot/vmlinuz-aarch64 || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "ci: add built aarch64 kernel image (vmlinuz-aarch64)"
+            # Ensure we are up-to-date and retry push on conflict
+            git fetch origin ${{ github.ref_name }} || true
+            git rebase origin/${{ github.ref_name }} || true
+            git push origin HEAD:${{ github.ref_name }} || (git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }})
+          fi
 
   build-riscv64:
     name: Build riscv64 kernel and commit
@@ -100,9 +107,15 @@ jobs:
           if [ -f iso/boot/vmlinuz-riscv64 ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add iso/boot/vmlinuz-riscv64
-            git commit -m "ci: add built riscv64 kernel image (vmlinuz-riscv64)" || echo "No changes"
-            git push origin HEAD:${{ github.ref_name }}
+            git add iso/boot/vmlinuz-riscv64 || true
+            if git diff --cached --quiet; then
+              echo "No changes to commit"
+            else
+              git commit -m "ci: add built riscv64 kernel image (vmlinuz-riscv64)"
+              git fetch origin ${{ github.ref_name }} || true
+              git rebase origin/${{ github.ref_name }} || true
+              git push origin HEAD:${{ github.ref_name }} || (git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }})
+            fi
           else
             echo "No riscv64 kernel image produced; continuing" && true
           fi
