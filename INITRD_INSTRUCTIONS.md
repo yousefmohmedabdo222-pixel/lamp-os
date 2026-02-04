@@ -13,7 +13,16 @@ grub-mkrescue -o lamp-os.iso iso/
 تشغيل QEMU تفاعليًا عبر الطرفية التسلسلية:
 ```bash
 cd /workspaces/lamp-os
+# Example tests for different architectures
+# x86_64
 qemu-system-x86_64 -cdrom lamp-os.iso -m 1024 -smp 2 -serial stdio -display none -accel tcg
+
+# aarch64 (boot kernel + initrd directly)
+qemu-system-aarch64 -machine virt -cpu cortex-a57 -nographic \
+    -kernel iso/boot/vmlinuz-aarch64 -initrd iso/boot/initrd.img -append 'console=ttyAMA0'
+
+# riscv64
+qemu-system-riscv64 -machine virt -nographic -kernel iso/boot/vmlinuz-riscv64 -initrd iso/boot/initrd.img -append 'console=ttyS0'
 ```
 إذا أردت تسجيل الخرج بدلاً من الجلسة التفاعلية:
 ```bash

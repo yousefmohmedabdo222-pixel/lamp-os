@@ -30,6 +30,10 @@ NC='\033[0m'
 # Configuration
 PROJECT_NAME="Lamp OS"
 PROJECT_VERSION="0.1.0"
+# Target architecture (override with env variable): e.g. x86_64, aarch64, arm, riscv
+TARGET_ARCH="${TARGET_ARCH:-x86_64}"
+# Optional cross-compiler prefix (e.g. aarch64-linux-gnu-)
+CROSS_COMPILE="${CROSS_COMPILE:-}"
 START_TIME=$(date +%s)
 
 # Helper functions
@@ -112,10 +116,23 @@ show_status() {
     echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
     
     echo ""
-    echo -e "${CYAN}Kernel:${NC}"
-    if [ -f "kernel/linux-6.6/arch/x86_64/boot/bzImage" ]; then
-        size=$(ls -lh kernel/linux-6.6/arch/x86_64/boot/bzImage | awk '{print $5}')
-        echo "  ✓ Built ($size)"
+    echo -e "${CYAN}Kernel (ARCH=${TARGET_ARCH}):${NC}"
+    # Detect common kernel image outputs for the selected architecture
+    KERNEL_PATH=""
+    if [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/bzImage" ]; then
+        KERNEL_PATH="kernel/linux-6.6/arch/${TARGET_ARCH}/boot/bzImage"
+    elif [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/vmlinuz" ]; then
+        KERNEL_PATH="kernel/linux-6.6/arch/${TARGET_ARCH}/boot/vmlinuz"
+    elif [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/Image" ]; then
+        KERNEL_PATH="kernel/linux-6.6/arch/${TARGET_ARCH}/boot/Image"
+    elif [ -f "kernel/linux-6.6/vmlinux" ]; then
+        KERNEL_PATH="kernel/linux-6.6/vmlinux"
+    elif [ -f "iso/boot/vmlinuz-${TARGET_ARCH}" ]; then
+        KERNEL_PATH="iso/boot/vmlinuz-${TARGET_ARCH}"
+    fi
+    if [ -n "$KERNEL_PATH" ]; then
+        size=$(ls -lh "$KERNEL_PATH" | awk '{print $5}')
+        echo "  ✓ Built ($size) -> $KERNEL_PATH"
     else
         echo "  ✗ Not built"
     fi
@@ -202,13 +219,15 @@ setup_directories() {
 
 # Build kernel
 build_kernel() {
-    print_step "Building Linux Kernel"
+    print_step "Building Linux Kernel (ARCH=${TARGET_ARCH})"
     
     if [ -f "./build_kernel.sh" ]; then
         info "Running kernel builder..."
-        ./build_kernel.sh
+        # Export TARGET_ARCH and CROSS_COMPILE for the helper
+        TARGET_ARCH=${TARGET_ARCH} CROSS_COMPILE=${CROSS_COMPILE} ./build_kernel.sh
         
-        if [ -f "kernel/linux-6.6/arch/x86_64/boot/bzImage" ]; then
+        # Detect if kernel is available
+        if [ -f "iso/boot/vmlinuz-${TARGET_ARCH}" ] || [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/bzImage" ] || [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/Image" ] || [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/vmlinuz" ]; then
             success "Kernel build successful!"
         else
             error "Kernel build failed!"
@@ -289,15 +308,39 @@ show_build_summary() {
         echo "  ISO: lamp-os.iso ($iso_size)"
     fi
     
-    if [ -f "kernel/linux-6.6/arch/x86_64/boot/bzImage" ]; then
-        kernel_size=$(ls -lh kernel/linux-6.6/arch/x86_64/boot/bzImage | awk '{print $5}')
-        echo "  Kernel: $kernel_size"
+    # Show kernel info for TARGET_ARCH
+    KERNEL_PATH=""
+    if [ -f "iso/boot/vmlinuz-${TARGET_ARCH}" ]; then
+        KERNEL_PATH="iso/boot/vmlinuz-${TARGET_ARCH}"
+    elif [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/bzImage" ]; then
+        KERNEL_PATH="kernel/linux-6.6/arch/${TARGET_ARCH}/boot/bzImage"
+    elif [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/vmlinuz" ]; then
+        KERNEL_PATH="kernel/linux-6.6/arch/${TARGET_ARCH}/boot/vmlinuz"
+    elif [ -f "kernel/linux-6.6/arch/${TARGET_ARCH}/boot/Image" ]; then
+        KERNEL_PATH="kernel/linux-6.6/arch/${TARGET_ARCH}/boot/Image"
+    fi
+    if [ -n "$KERNEL_PATH" ]; then
+        kernel_size=$(ls -lh "$KERNEL_PATH" | awk '{print $5}')
+        echo "  Kernel ($TARGET_ARCH): $kernel_size -> $KERNEL_PATH"
     fi
     
     echo ""
     echo -e "${GREEN}Test the system:${NC}"
     if [ -f "lamp-os.iso" ]; then
-        echo "  qemu-system-x86_64 -cdrom lamp-os.iso -m 512 -smp 2"
+        case "$TARGET_ARCH" in
+            x86_64)
+                echo "  qemu-system-x86_64 -cdrom lamp-os.iso -m 512 -smp 2"
+                ;;
+            aarch64)
+                echo "  qemu-system-aarch64 -machine virt -cpu cortex-a57 -nographic -kernel iso/boot/vmlinuz-aarch64 -initrd iso/boot/initrd.img -append 'console=ttyAMA0'"
+                ;;
+            riscv*|riscv64)
+                echo "  qemu-system-riscv64 -machine virt -nographic -kernel iso/boot/vmlinuz-riscv64 -initrd iso/boot/initrd.img -append 'console=ttyS0'"
+                ;;
+            *)
+                echo "  (No default QEMU command for $TARGET_ARCH; see INITRD_INSTRUCTIONS.md)"
+                ;;
+        esac
     fi
     
     echo ""

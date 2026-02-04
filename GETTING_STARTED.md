@@ -4,9 +4,12 @@
 
 ### نظام التشغيل:
 - **Ubuntu 20.04+** أو **Debian 11+**
-- **CPU**: معالج x86_64
+- **CPU**: أي — يمكنك استهداف x86_64 أو aarch64/arm أو riscv أو غيرها عبر المتغير `TARGET_ARCH`
 - **RAM**: 4GB على الأقل
 - **مساحة تخزين**: 20GB على الأقل
+
+> لتجربة معماريات أخرى: ضبط المتغيرات مثل:
+> TARGET_ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- ./build.sh quick
 
 ### البرامج المطلوبة:
 ```bash
@@ -133,18 +136,22 @@ chmod 1777 tmp
 ```
 
 ### الخطوة 2: استخدام BusyBox
+
+إذا كانت المعمارية الهدف `x86_64` يمكنك تنزيل نسخة ثنائية جاهزة:
 ```bash
-# تحميل BusyBox
+# تحميل BusyBox (x86_64 prebuilt)
 wget https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
 chmod +x busybox
-
-# نسخ BusyBox إلى bin/sh
 cp busybox bin/sh
+./busybox --install -s bin
+```
 
-# إنشاء الروابط الرمزية للأوامر الأخرى
-./busybox | grep "^\t" | sed 's/^[[:space:]]*//;s/[,[:space:]]*$//' | while read cmd; do
-    ln -sf ../bin/sh bin/$cmd
-done
+إذا كنت تستهدف معمارية أخرى (aarch64, riscv, ...):
+```bash
+# استخدم مدرّج البناء المدمج
+TARGET_ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- DESTDIR=$(pwd) ../../build_busybox.sh
+# أو من جذر المشروع
+TARGET_ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- DESTDIR=initrd ./build_busybox.sh
 ```
 
 ### الخطوة 3: نسخ المكتبات المطلوبة

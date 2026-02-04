@@ -57,9 +57,11 @@ Hardware
 
 ### نظام التشغيل:
 - Ubuntu 20.04+ أو Debian 11+
-- CPU: x86_64
+- CPU: أي (يدعم x86_64, aarch64/arm64, arm, riscv، powerpc، mips، loongarch)
 - RAM: 4GB (على الأقل للتطوير)
 - مساحة تخزين: 20GB
+
+> قم بتعيين المتغير `TARGET_ARCH` و `CROSS_COMPILE` عند البناء لاستهداف معمارية مختلفة.
 
 ### البرامج المطلوبة:
 ```bash
@@ -69,7 +71,8 @@ sudo apt install -y \
     libssl-dev libncurses-dev \
     flex bison \
     dosfstools grub-pc-bin xorriso \
-    qemu-system-x86
+    qemu-system-x86 qemu-system-aarch64 qemu-system-arm qemu-system-riscv \
+    # (اختياري) cross compilers: gcc-aarch64-linux-gnu, gcc-riscv64-unknown-elf, gcc-powerpc64le-linux-gnu
 ```
 
 ## 🚀 البدء السريع

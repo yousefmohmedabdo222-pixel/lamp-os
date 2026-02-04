@@ -1,0 +1,27 @@
+Lamp OS - Initrd System Manifest
+=================================
+
+Structure:
+- bin/        : Essential executables (busybox, sh, etc.)
+- sbin/       : System binaries
+- lib/        : System libraries
+- etc/        : Configuration files
+- dev/        : Device files (created at boot)
+- proc/       : Kernel filesystem (mounted at boot)
+- sys/        : System filesystem (mounted at boot)
+- opt/        : Optional applications
+- root/       : Root user home
+- home/       : User home directories
+- tmp/        : Temporary files
+
+Init Process:
+- Mounts filesystems (dev, proc, sys, tmp)
+- Creates essential device nodes
+- Displays system information
+- Starts GUI or interactive shell
+
+BusyBox Utilities:
+- All standard Unix utilities via busybox symlinks
+- Shell (sh) for scripting
+- Basic system administration tools
+

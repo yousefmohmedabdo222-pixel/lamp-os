@@ -83,6 +83,27 @@ CONFIG_STRICT_MODULE_RWX=y
 
 ---
 
+### دعم متعدد المعماريات
+
+Lamp OS قابل للتشغيل على معمارية x86_64، وaarch64 (ARM64)، وARM، وRISC-V، وPowerPC والمزيد.
+
+للبناء لمعمارية محددة:
+
+```bash
+# مثال: بناء لنواة aarch64
+TARGET_ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- ./build_kernel.sh
+TARGET_ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- ./build_initrd.sh
+TARGET_ARCH=aarch64 ./create_iso.sh
+```
+
+أدرجنا سكربت `build_all_archs.sh` لمحاولة بناء كل المعماريات مدرجة (best-effort) وفحص وجود محولات البناء (cross-compilers).
+
+ملاحظات:
+- بعض المعماريات تتطلب تثبيت toolchain مخصص (مثل `gcc-aarch64-linux-gnu`) أو إعداد UEFI/U-Boot للتمهيد.
+- إذا أردت دعم معماريات إضافية، أضفها إلى `build_all_archs.sh` ووفّر toolchain مناسب.
+
+---
+
 ## 2️⃣ طبقة التمهيد والملفات (Initrd)
 
 ### البنية المقترحة:

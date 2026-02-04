@@ -23,7 +23,12 @@ NC='\033[0m' # No Color
 
 # Configuration
 INITRD_DIR="initrd"
+# Allow cross-arch initrd build
+TARGET_ARCH="${TARGET_ARCH:-x86_64}"
+CROSS_COMPILE="${CROSS_COMPILE:-}"
 BUSYBOX_VERSION="1.35.0"
+# For non-x86_64 targets we will build BusyBox from source (using build_busybox.sh)
+# Prebuilt binaries are used only for x86_64 as a fast-path
 BUSYBOX_URL="https://busybox.net/downloads/binaries/${BUSYBOX_VERSION}-x86_64-linux-musl/busybox"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
@@ -58,7 +63,7 @@ fi
 # Create essential directories
 mkdir -p \
     bin sbin \
-    lib lib/x86_64-linux-musl \
+    lib lib/${TARGET_ARCH}-linux-musl \
     etc etc/init.d \
     dev proc sys root tmp \
     opt/lamp-gui \
@@ -74,14 +79,21 @@ status "Filesystem structure created"
 echo -e "\n${BLUE}Step 2: Setting up BusyBox...${NC}"
 
 if [ -f "bin/busybox" ]; then
-    status "BusyBox already exists, skipping download"
+    status "BusyBox already exists, skipping"
 else
-    echo "Downloading BusyBox ${BUSYBOX_VERSION}..."
-    if wget -q --show-progress "$BUSYBOX_URL" -O bin/busybox 2>/dev/null; then
-        chmod +x bin/busybox
-        status "BusyBox downloaded and installed"
+    if [ "$TARGET_ARCH" = "x86_64" ]; then
+        echo "Attempting to download prebuilt BusyBox for x86_64 ${BUSYBOX_VERSION}..."
+        if wget -q --show-progress "$BUSYBOX_URL" -O bin/busybox 2>/dev/null; then
+            chmod +x bin/busybox
+            status "BusyBox downloaded and installed (x86_64 prebuilt)"
+        else
+            warning "Failed to download prebuilt BusyBox. Falling back to build from source."
+            TARGET_ARCH=${TARGET_ARCH} CROSS_COMPILE=${CROSS_COMPILE} DESTDIR="${INITRD_DIR}" ./build_busybox.sh
+        fi
     else
-        error "Failed to download BusyBox. Check internet connection."
+        echo "Building BusyBox from source for ARCH=${TARGET_ARCH}..."
+        TARGET_ARCH=${TARGET_ARCH} CROSS_COMPILE=${CROSS_COMPILE} DESTDIR="${INITRD_DIR}" ./build_busybox.sh
+        status "BusyBox built and installed into ${INITRD_DIR}"
     fi
 fi
 
@@ -364,21 +376,23 @@ copy_lib() {
     return 1
 }
 
-# Try to find and copy musl libc
-for musl_path in /lib/x86_64-linux-musl /lib64 /lib /usr/lib; do
-    if [ -f "$musl_path/libc.so" ] || [ -f "$musl_path/ld-musl-x86_64.so.1" ]; then
-        cp "$musl_path/"*.so* lib/ 2>/dev/null || true
-        status "Copied libraries from $musl_path"
-        break
+# Try to find and copy suitable libc/ld and other shared libraries
+status "Scanning host for compatible libraries (best-effort)"
+COPIED_LIBS=0
+for libdir in /lib /lib64 /usr/lib /usr/lib64 /lib/${TARGET_ARCH}-linux-gnu /usr/${TARGET_ARCH}-linux-gnu/lib; do
+    if [ -d "$libdir" ]; then
+        # Copy common shared libs (libc, ld, ld-musl, libm, libpthread, etc.)
+        cp -a "$libdir"/*.so* lib/ 2>/dev/null || true
+        if [ $? -eq 0 ]; then
+            status "Copied libraries from $libdir"
+            COPIED_LIBS=1
+            break
+        fi
     fi
 done
-
-# Try copying ld-linux
-for ld_path in /lib64 /lib /usr/lib; do
-    if [ -f "$ld_path/ld-linux-x86-64.so.2" ]; then
-        cp "$ld_path/ld-linux-x86-64.so.2" lib/ 2>/dev/null || true
-    fi
-done
+if [ $COPIED_LIBS -eq 0 ]; then
+    warning "No suitable shared libraries auto-copied; initrd may require static BusyBox or manual copy of libc/ld for ${TARGET_ARCH}."
+fi
 
 # Step 7b: Add additional utilities
 echo -e "\n${BLUE}Step 7b: Adding additional utilities...${NC}"
@@ -466,14 +480,14 @@ status "Statistics generated"
 echo -e "\n${BLUE}Step 10: Creating CPIO archive...${NC}"
 
 # Create CPIO archive without a top-level 'initrd' directory prefix
-if [ -d "iso/boot" ]; then
+if [ -d "../iso/boot" ]; then
     echo "Creating initrd.img from CPIO (no top-level prefix)..."
-    (cd initrd && find . -print0 | cpio -0oH newc 2>/dev/null) | gzip -9 > iso/boot/initrd.img
-    initrd_size=$(ls -lh iso/boot/initrd.img | awk '{print $5}')
+    (find . -print0 | cpio -0oH newc 2>/dev/null) | gzip -9 > ../iso/boot/initrd.img
+    initrd_size=$(ls -lh ../iso/boot/initrd.img | awk '{print $5}')
     status "CPIO archive created: $initrd_size"
 else
-    warning "iso/boot directory not found. Skipping CPIO creation."
-    warning "Run this after creating the ISO directory structure."
+    warning "../iso/boot directory not found. Skipping CPIO creation."
+    warning "Run this after creating the ISO directory structure (or run from project root with iso/boot present)."
 fi
 
 # Final summary
@@ -489,8 +503,10 @@ echo "  Directories: $dir_count"
 echo "  Symlinks: $symlink_count"
 echo ""
 echo -e "${GREEN}Next steps:${NC}"
-echo "  1. Ensure your Linux kernel is built (arch/x86_64/boot/bzImage)"
-echo "  2. Copy kernel: cp kernel/linux-6.6/arch/x86_64/boot/bzImage iso/boot/vmlinuz"
-echo "  3. Run: ./create_iso.sh"
-echo "  4. Test: qemu-system-x86_64 -cdrom lamp-os.iso -m 512"
+echo "  1. Ensure your Linux kernel is built for ARCH=${TARGET_ARCH} (check arch/${TARGET_ARCH}/boot/*)"
+echo "  2. Copy kernel: cp kernel/linux-6.6/arch/${TARGET_ARCH}/boot/<kernel-image> iso/boot/vmlinuz-${TARGET_ARCH} && ln -sf vmlinuz-${TARGET_ARCH} iso/boot/vmlinuz"
+echo "  3. Run: ./create_iso.sh (or set TARGET_ARCH and CROSS_COMPILE as needed)"
+echo "  4. Test with QEMU (example):"
+echo "     - x86_64: qemu-system-x86_64 -cdrom lamp-os.iso -m 512"
+echo "     - aarch64: qemu-system-aarch64 -machine virt -cpu cortex-a57 -nographic -kernel iso/boot/vmlinuz-aarch64 -initrd iso/boot/initrd.img -append 'console=ttyAMA0'"
 echo ""
