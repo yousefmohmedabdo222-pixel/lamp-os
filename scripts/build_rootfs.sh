@@ -57,6 +57,15 @@ mkdir -p "$DEST"
 
 echo "[+] Bootstrapping base Ubuntu ($RELEASE) with KDE packages..."
 
+# Ensure non-interactive package configuration in CI environments.
+export DEBIAN_FRONTEND=noninteractive
+export DEBCONF_NONINTERACTIVE_SEEN=true
+export APT_LISTCHANGES_FRONTEND=none
+
+# If debootstrap fails, show the log to help diagnose the cause (often package configuration errors).
+DEBOOTSTRAP_LOG="$DEST/debootstrap/debootstrap.log"
+trap 'if [ -f "$DEBOOTSTRAP_LOG" ]; then echo "\n=== debootstrap log (last 200 lines) ==="; tail -n 200 "$DEBOOTSTRAP_LOG"; fi' ERR
+
 debootstrap --variant=minbase --components=main,universe \
   --include=systemd-sysv,plasma-desktop,sddm,kwin-wayland,kde-cli-tools,network-manager,plasma-discover,pipewire,pipewire-pulse,wireplumber,alsa-utils,xorg,xinit,dbus-x11,dbus,dbus-user-session,apt,ca-certificates,ssh,nano,less \
   $RELEASE "$DEST" "$MIRROR"
