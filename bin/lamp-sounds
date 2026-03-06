@@ -1,0 +1,32 @@
+#!/bin/bash
+# simple sound player helper for LAMP OS
+# expects files under /usr/share/sounds/lamp/<event>.wav
+
+EVENT="$1"
+SOUND_DIR="${LAMP_SOUND_DIR:-/usr/share/sounds/lamp}"
+
+# try to locate a file containing the event name (ignore case)
+FILE=""
+if [ -d "$SOUND_DIR" ]; then
+    for candidate in "$SOUND_DIR"/*; do
+        if echo "$(basename "$candidate")" | grep -iq "$EVENT"; then
+            FILE="$candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "$FILE" ]; then
+    echo "[lamp-sounds] no sound file found for event '$EVENT' in $SOUND_DIR"
+    exit 1
+fi
+
+# choose player based on extension
+ext="${FILE##*.}"
+if command -v aplay >/dev/null 2>&1 && [ "$ext" = "wav" ]; then
+    aplay "$FILE"
+elif command -v mpv >/dev/null 2>&1; then
+    mpv --no-video --quiet "$FILE"
+else
+    echo "[lamp-sounds] would play $FILE (no suitable player installed)"
+fi

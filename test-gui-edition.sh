@@ -89,6 +89,16 @@ else
     ((FAIL++))
 fi
 
+# check helper scripts copied
+if [ -f "initrd/opt/lamp-gui/start-desktop.sh" ]; then
+    echo -e "${GREEN}✓${RESET} start-desktop script available"
+    ((PASS++))
+fi
+if [ -f "initrd/opt/lamp-gui/plasma.sh" ]; then
+    echo -e "${GREEN}✓${RESET} plasma launcher script available"
+    ((PASS++))
+fi
+
 # Check start-desktop
 if [ -f "initrd/root/start-desktop.sh" ]; then
     echo -e "${GREEN}✓${RESET} Desktop startup script found"
@@ -108,6 +118,38 @@ for tool in lamp-menu lamp-network lamp-system; do
         ((FAIL++))
     fi
 done
+
+# premium additions (optional)
+if [ -f "gui/windows7.theme" ]; then
+    echo -e "${GREEN}✓${RESET} Windows7 theme file present"
+    ((PASS++))
+else
+    echo -e "${YELLOW}⚠️${RESET} Windows7 theme file missing (premium feature)"
+fi
+
+if [ -x "bin/lamp-sounds" ]; then
+    echo -e "${GREEN}✓${RESET} lamp-sounds helper found"
+    ((PASS++))
+else
+    echo -e "${YELLOW}⚠️${RESET} lamp-sounds helper missing (premium feature)"
+fi
+
+# backgrounds check
+if [ -d "opt/backgrounds" ]; then
+    echo -e "${GREEN}✓${RESET} default desktop background folder exists"
+    ((PASS++))
+    if [ -f "opt/backgrounds/image_1772741586376.jpeg" ]; then
+        echo -e "${GREEN}✓${RESET} default wallpaper file present"
+        ((PASS++))
+    fi
+else
+    echo -e "${YELLOW}⚠️${RESET} backgrounds folder missing"
+fi
+
+if [ -f "opt/backgrounds/Installation screen background.jpeg" ]; then
+    echo -e "${GREEN}✓${RESET} installation screen background present"
+    ((PASS++))
+fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

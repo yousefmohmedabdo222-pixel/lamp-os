@@ -249,7 +249,14 @@ build_gui() {
             if [ -f "lamp-desktop" ]; then
                 mkdir -p ../initrd/opt/lamp-gui
                 cp -v lamp-desktop ../initrd/opt/lamp-gui/ || true
-                status "Copied GUI to initrd/opt/lamp-gui"
+                # copy support scripts and resources
+                cp -v start-desktop.sh ../initrd/opt/lamp-gui/ 2>/dev/null || true
+                cp -v plasma.sh ../initrd/opt/lamp-gui/ 2>/dev/null || true
+                if [ -d "../opt/backgrounds" ]; then
+                    mkdir -p ../initrd/opt/lamp-gui/backgrounds
+                    cp -a ../opt/backgrounds/* ../initrd/opt/lamp-gui/backgrounds/ 2>/dev/null || true
+                fi
+                status "Copied GUI and helpers to initrd/opt/lamp-gui"
             fi
         else
             warning "qmake not found; skipping GUI build"

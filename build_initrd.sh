@@ -14,6 +14,9 @@
 
 set -e
 
+# Project root (used for referencing assets)
+PROJECT_ROOT="$(pwd)"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,6 +52,15 @@ warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
+# Run a command as root (using sudo when needed)
+run_privileged() {
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        "$@"
+    fi
+}
+
 # Step 1: Create filesystem structure
 echo -e "\n${BLUE}Step 1: Creating filesystem structure...${NC}"
 cd "$INITRD_DIR" 2>/dev/null || error "Initrd directory not found! Create it first with: mkdir -p initrd"
@@ -67,6 +79,8 @@ mkdir -p \
     etc etc/init.d \
     dev proc sys root tmp \
     opt/lamp-gui \
+    installer \
+    boot \
     home/user \
     usr/bin usr/sbin usr/lib \
     var/log var/run \
@@ -214,8 +228,65 @@ INIT_EOF
 chmod +x init
 status "Init process created"
 
-# Step 5: Create essential config files
-echo -e "\n${BLUE}Step 5: Creating configuration files...${NC}"
+# Step 5: Include installer and boot assets
+# (allows the Live USB to run the disk installer and install to HDD/SSD)
+echo -e "\n${BLUE}Step 5: Including installer and boot assets...${NC}"
+
+# Copy installer scripts from the repository into the initrd
+if [ -d "../installer" ]; then
+    cp -a ../installer/* installer/ 2>/dev/null || true
+    status "Installer scripts copied into initrd"
+fi
+
+# Copy the built kernel into initrd so installer can install it to disk
+KERNEL_SRC="../iso/boot/vmlinuz-${TARGET_ARCH}"
+if [ -f "$KERNEL_SRC" ]; then
+    mkdir -p boot
+    cp -v "$KERNEL_SRC" boot/vmlinuz 2>/dev/null || true
+    status "Kernel copied into initrd (boot/vmlinuz)"
+fi
+
+# Include partitioning and bootloader tools (if present on the build host)
+# This lets the installer run in the live environment without needing external tools.
+if command -v grub-install >/dev/null 2>&1; then
+    mkdir -p usr/sbin
+    cp -v "$(command -v grub-install)" usr/sbin/ 2>/dev/null || true
+    status "grub-install included"
+
+    # Copy GRUB module files so grub-install can function inside initrd
+    if [ -d "/usr/lib/grub" ]; then
+        mkdir -p usr/lib
+        cp -a /usr/lib/grub usr/lib/ 2>/dev/null || true
+        status "GRUB modules copied"
+    fi
+
+    # Copy required shared libraries
+    for lib in $(ldd "$(command -v grub-install)" | awk '/=>/ {print $3}' | sort -u); do
+        if [ -f "$lib" ]; then
+            dest_dir="./$(dirname "$lib")"
+            mkdir -p "$dest_dir"
+            cp -v "$lib" "$dest_dir/" 2>/dev/null || true
+        fi
+    done
+fi
+
+if command -v parted >/dev/null 2>&1; then
+    mkdir -p usr/sbin
+    cp -v "$(command -v parted)" usr/sbin/ 2>/dev/null || true
+    status "parted included"
+    for lib in $(ldd "$(command -v parted)" | awk '/=>/ {print $3}' | sort -u); do
+        if [ -f "$lib" ]; then
+            dest_dir="./$(dirname "$lib")"
+            mkdir -p "$dest_dir"
+            cp -v "$lib" "$dest_dir/" 2>/dev/null || true
+        fi
+    done
+fi
+
+# Continue with config file creation
+
+# Step 6: Create essential config files
+echo -e "\n${BLUE}Step 6: Creating configuration files...${NC}"
 
 # Create passwd file
 cat > etc/passwd << 'EOF'
@@ -410,8 +481,59 @@ ln -sf busybox bin/wget 2>/dev/null || true
 ln -sf busybox bin/curl 2>/dev/null || true
 ln -sf busybox bin/nc 2>/dev/null || true
 status "Created utility symlinks"
-# Step 7c: System sounds
-echo -e "\n${BLUE}Step 7c: Generating system sounds...${NC}"
+
+# Step 7c: Install KDE Plasma root filesystem into initrd (optional)
+echo -e "\n${BLUE}Step 7c: Installing KDE Plasma into initrd (this may take a while)...${NC}"
+KDE_ROOT="opt/kde-rootfs"
+if [ -f "$KDE_ROOT/.kde_installed" ]; then
+    status "KDE rootfs already prepared, skipping"
+else
+    if ! command -v debootstrap >/dev/null 2>&1; then
+        warning "debootstrap not available; skipping KDE integration"
+    else
+        mkdir -p "$KDE_ROOT"
+        echo "Bootstrapping Ubuntu rootfs (this can take several minutes)..."
+        TEMP_ROOT=$(mktemp -d /tmp/lamp-kde-rootfs-XXXX)
+        # debootstrap may fail on noexec filesystems; create rootfs in /tmp and copy in
+        # Run debootstrap in a temporary directory to avoid noexec mount issues.
+        set +e
+        run_privileged debootstrap --variant=minbase --components=main,universe --include=apt,dbus,dbus-user-session,dbus-x11,plasma-desktop,kwin-wayland,xwayland,sddm,network-manager,pipewire,pipewire-pulse,pipewire-audio,wireplumber,alsa-utils,mesa-utils,nano noble "$TEMP_ROOT" http://archive.ubuntu.com/ubuntu/
+        DEBOOTSTRAP_STATUS=$?
+        set -e
+
+        if [ $DEBOOTSTRAP_STATUS -ne 0 ]; then
+            warning "KDE rootfs bootstrap failed (exit $DEBOOTSTRAP_STATUS). Continuing without KDE integration."
+            warning "Check /tmp/lamp-kde-rootfs-* and their debootstrap/debootstrap.log for details."
+            run_privileged rm -rf "$TEMP_ROOT"
+        else
+            # Copy resulting rootfs into initrd tree
+            rm -rf "$KDE_ROOT" && mkdir -p "$KDE_ROOT"
+            cp -a "$TEMP_ROOT"/* "$KDE_ROOT"/ 2>/dev/null || rsync -a "$TEMP_ROOT"/ "$KDE_ROOT"/
+            run_privileged rm -rf "$TEMP_ROOT"
+            cat > "$KDE_ROOT/root/start-kde.sh" << 'EOF'
+#!/bin/sh
+# Simple launcher for KDE Plasma in initrd
+export XDG_RUNTIME_DIR=/run/user/0
+mkdir -p "$XDG_RUNTIME_DIR"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+if command -v startplasma-wayland >/dev/null 2>&1; then
+  exec dbus-launch --exit-with-session startplasma-wayland
+elif command -v startplasma-x11 >/dev/null 2>&1; then
+  exec dbus-launch --exit-with-session startplasma-x11
+else
+  echo "KDE Plasma launchers not found."
+  exec /bin/sh -i -l
+fi
+EOF
+            chmod +x "$KDE_ROOT/root/start-kde.sh"
+            touch "$KDE_ROOT/.kde_installed"
+            status "KDE Plasma rootfs installed at $KDE_ROOT"
+        fi
+    fi
+fi
+
+# Step 7d: Generating system sounds...
+echo -e "\n${BLUE}Step 7d: Generating system sounds...${NC}"
 SOUNDS_DIR="opt/sounds"
 if [ ! -d "$SOUNDS_DIR" ] || [ -z "$(ls -A $SOUNDS_DIR 2>/dev/null)" ]; then
     # Try to generate sounds using embedded Python script
@@ -430,7 +552,31 @@ if [ -d "$SOUNDS_DIR" ]; then
     mkdir -p usr/share/sounds/lamp
     cp -a $SOUNDS_DIR/* usr/share/sounds/lamp/ 2>/dev/null || true
     status "Installed system sounds to usr/share/sounds/lamp" 
+    # also preserve any logo images for UI scripts
+    mkdir -p usr/share/lamp/logos
+    cp -a $SOUNDS_DIR/logo*.jp* usr/share/lamp/logos/ 2>/dev/null || true
+    status "Installed logo images to usr/share/lamp/logos"
+    # copy backgrounds if available
+    if [ -d "$PROJECT_ROOT/opt/backgrounds" ]; then
+        mkdir -p usr/share/lamp/backgrounds
+        cp -a "$PROJECT_ROOT/opt/backgrounds"/* usr/share/lamp/backgrounds/ 2>/dev/null || true
+        status "Installed desktop backgrounds to usr/share/lamp/backgrounds"
+    fi
+
+    # If a squashfs rootfs exists, bundle it into the initrd
+    if [ -f "$PROJECT_ROOT/opt/rootfs.squashfs" ]; then
+        mkdir -p opt
+        cp -v "$PROJECT_ROOT/opt/rootfs.squashfs" opt/ 2>/dev/null || true
+        status "Bundled squashfs rootfs into initrd (opt/rootfs.squashfs)"
+    fi
 fi
+
+# ensure default wallpaper config
+mkdir -p etc/lamp
+if [ -f usr/share/lamp/backgrounds/image_1772741586376.jpeg ]; then
+    echo "/usr/share/lamp/backgrounds/image_1772741586376.jpeg" > etc/lamp/wallpaper
+fi
+
 # Step 8: Create manifest
 echo -e "\n${BLUE}Step 8: Creating manifest...${NC}"
 

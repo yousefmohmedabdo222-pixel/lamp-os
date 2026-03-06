@@ -17,6 +17,8 @@
 #include <QInputDialog>
 #include <QFontDatabase>
 #include <QSplitter>
+#include <QFile>
+#include <QDir>
 #include <QTreeView>
 #include <QListView>
 #include <QTableView>
@@ -42,7 +44,6 @@
 #include <QDateTimeEdit>
 #include <QTimeEdit>
 #include <QDateEdit>
-#include <QSoundEffect>
 
 class LampDesktop : public QMainWindow {
     Q_OBJECT
@@ -66,6 +67,16 @@ protected:
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
         
+        // حاول تحميل ورقة الحائط من التكوين
+        QString wp = wallpaperPath();
+        if (!wp.isEmpty()) {
+            QPixmap pix(wp);
+            if (!pix.isNull()) {
+                painter.drawPixmap(rect(), pix);
+                return;
+            }
+        }
+        
         // خلفية متدرجة مع تأثيرات ضوئية
         QLinearGradient gradient(0, 0, width(), height());
         gradient.setColorAt(0, QColor(30, 60, 114));
@@ -81,8 +92,7 @@ protected:
     
 private slots:
     void showStartMenu() {
-        if (startSound.playing()) startSound.stop();
-        startSound.play();
+        // sound playback skipped (Qt Multimedia not available)
         startMenu->popup(mapToGlobal(QPoint(10, height() - startButton->height() - 10)));
     }
     
@@ -99,8 +109,6 @@ private slots:
     }
     
 private:
-    QSoundEffect startSound;
-    QSoundEffect clickSound;
 
     void setupUI() {
         // إنشاء ويدجت مركزية
@@ -349,7 +357,7 @@ private:
             "}"
         );
         connect(startButton, &QPushButton::clicked, this, &LampDesktop::showStartMenu);
-        connect(startButton, &QPushButton::clicked, [this](){ clickSound.play(); });
+        // sound playback skipped (Qt Multimedia not available)
         
         startMenu = new QMenu(this);
         startMenu->setStyleSheet(
@@ -383,7 +391,9 @@ private:
         });
         startMenu->addSeparator();
         startMenu->addAction("⚙️ Settings");
-        startMenu->addAction("📦 Software Center");
+        startMenu->addAction("� Change Wallpaper")->connect(startMenu->actions().last(), &QAction::triggered,
+                                                              this, &LampDesktop::changeWallpaper);
+        startMenu->addAction("�📦 Software Center");
         startMenu->addSeparator();
         startMenu->addAction("⏻ Shutdown")->connect(startMenu->actions().last(), &QAction::triggered,
                                                     this, &LampDesktop::shutdown);
@@ -419,14 +429,43 @@ private:
     
     void setupAnimations() {
         // Load sounds from resources
-        startSound.setSource(QUrl("qrc:/sounds/start.wav"));
-        startSound.setVolume(0.75);
-        clickSound.setSource(QUrl("qrc:/sounds/click.wav"));
-        clickSound.setVolume(0.6);
+        // Qt Multimedia not available in this build environment, skipping sound setup.
 
         QGraphicsOpacityEffect *opacityEffect = new QGraphicsOpacityEffect(this);
         opacityEffect->setOpacity(0.95);
         setGraphicsEffect(opacityEffect);
+    }
+
+    QString wallpaperPath() {
+        // default location in etc or user config
+        QString config = "/etc/lamp/wallpaper";
+        QFile f(config);
+        if (f.open(QIODevice::ReadOnly)) {
+            QString path = QString::fromUtf8(f.readAll()).trimmed();
+            if (!path.isEmpty() && QFile::exists(path))
+                return path;
+        }
+        // fallback to default background shipped with system
+        QString defaultBg = "/usr/share/lamp/backgrounds/image_1772741586376.jpeg";
+        if (QFile::exists(defaultBg))
+            return defaultBg;
+        return QString();
+    }
+
+    void changeWallpaper() {
+        QString dir = "/usr/share/lamp/backgrounds";
+        if (!QDir(dir).exists()) dir = QDir::homePath();
+        QString file = QFileDialog::getOpenFileName(this, "Choose Wallpaper", dir,
+                                                    "Images (*.png *.jpg *.jpeg)");
+        if (!file.isEmpty()) {
+            // write to config file
+            QFile f("/etc/lamp/wallpaper");
+            if (f.open(QIODevice::WriteOnly)) {
+                f.write(file.toUtf8());
+            }
+            // immediately repaint
+            update();
+        }
     }
     
     void applyStyles() {

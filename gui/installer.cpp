@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QProcess>
+#include <QFile>
 
 InstallerDialog::InstallerDialog(QWidget *parent) : QDialog(parent) {
     setWindowTitle("🪔 Lamp OS Installer");
@@ -43,7 +44,7 @@ void InstallerDialog::refreshDevices() {
     deviceList->clear();
     // Use lsblk to list physical disks
     QProcess lsblk;
-    lsblk.start("lsblk -dn -o NAME,SIZE,TYPE | grep disk", QIODevice::ReadOnly);
+    lsblk.start("bash", QStringList() << "-lc" << "lsblk -dn -o NAME,SIZE,TYPE | grep disk");
     lsblk.waitForFinished(1000);
     QString out = lsblk.readAllStandardOutput();
     for (const QString &line : out.split('\n', Qt::SkipEmptyParts)) {

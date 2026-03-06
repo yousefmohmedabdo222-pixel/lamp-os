@@ -1,0 +1,7 @@
+# Windows 7 inspired theme for LAMP OS GUI
+# Colors are defined as simple key=value pairs
+
+background_color=#6496C8
+foreground_color=#FFFFFF
+button_color=#3278D7
+accent_color=#00FFFF

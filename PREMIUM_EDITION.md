@@ -41,6 +41,7 @@
    - صوت النجاح (Success Sound)
    - صوت الخطأ (Error Sound)
    - صوت الإيقاف (Shutdown Sound)
+   *المجلد `opt/sounds` يحتوي على ملفات الميديا الأصلية المُرفقة بالأسماء الواضحة (`error-sound.mp3`، `sound-installation-screen.mp3`، إلخ) وسيجري اختيار الملف المناسب حسب الحدث.*
 
 ✅ **التأثيرات الصوتية:**
    - استخدام `beep` command
@@ -137,6 +138,13 @@ lamp-sounds shutdown
 ---
 
 ## 🎨 تفاصيل التصميم
+### 🖼️ الشعارات والخلفيات
+- `logo.jpeg` يتم عرضه عند فتح النظام في شاشة الإقلاع.
+- `logo2.jpeg` يظهر في شاشة التثبيت (Partition Selector).
+- الخلفيات تُخزن في `/usr/share/lamp/backgrounds`.
+- الإفتراضيّة هي `image_1772741586376.jpeg` والتي تُستخدم لسطح المكتب؛ بإمكان المستخدم
+  تغييرها عبر إعدادات النظام أو كتابة المسار في `/etc/lamp/wallpaper`.
+- وأيضًا `Installation screen background.jpeg` تُستخدم في شاشة التثبيت.
 
 ### ألوان الواجهة:
 
