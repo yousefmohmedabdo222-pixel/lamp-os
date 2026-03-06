@@ -1,0 +1,17 @@
+Lamp OS Initrd Statistics
+==========================
+Generated: Mon Feb  2 17:09:38 UTC 2026
+
+Filesystem:
+- Total size: 840K
+- Regular files: 13
+- Directories: 24
+- Symlinks: 403
+
+Structure:
+- Init executable: ✓
+- BusyBox: ✓
+- Config files: ✓
+- Device nodes: ✗
+
+Ready to build ISO: YES ✓

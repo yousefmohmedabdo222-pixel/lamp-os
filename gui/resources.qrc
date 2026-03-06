@@ -1,0 +1,7 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+    <file>sounds/start.wav</file>
+    <file>sounds/click.wav</file>
+    <file>icons/tray.svg</file>
+</qresource>
+</RCC>

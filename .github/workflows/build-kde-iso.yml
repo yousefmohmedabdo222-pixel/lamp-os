@@ -1,0 +1,52 @@
+name: Build Lamp OS KDE ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'multi-arch-support'
+
+jobs:
+  build:
+    name: Build full ISO (KDE)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential debootstrap squashfs-tools xorriso \
+            grub-pc-bin grub-efi-amd64-bin \
+            qemu-user-static ca-certificates wget curl gnupg python3 \
+            git
+
+      - name: Make build scripts executable
+        run: |
+          chmod +x ./build.sh
+          chmod +x ./scripts/build_rootfs.sh
+          chmod +x ./scripts/make_rootfs_squash.sh
+
+      - name: Build full ISO (KDE)
+        run: |
+          sudo ./scripts/build_rootfs.sh /tmp/lamp-kde-rootfs
+          sudo ./scripts/make_rootfs_squash.sh /tmp/lamp-kde-rootfs /opt/rootfs.squashfs
+          ./build.sh quick
+
+      - name: Upload debootstrap log (for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debootstrap-log
+          path: /tmp/lamp-kde-rootfs/debootstrap/debootstrap.log
+
+      - name: Upload ISO artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lamp-os-kde-iso
+          path: lamp-os-x86_64.iso

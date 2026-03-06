@@ -39,3 +39,9 @@
 
 # debug information files
 *.dwo
+
+# Kernel tarballs and caches (do not commit large kernel archives)
+kernel/*.tar.xz
+# Allow committed kernel build scripts needed by CI
+!kernel/linux-6.6/scripts/Makefile.lib
+.cache/

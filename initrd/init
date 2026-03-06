@@ -1,0 +1,87 @@
+#!/bin/sh
+
+# 🪔 Lamp OS - Init Process
+
+echo ""
+echo "╔════════════════════════════════════════════════════════╗"
+echo "║                                                        ║"
+echo "║          🪔 Welcome to Lamp OS Initialization          ║"
+echo "║                                                        ║"
+echo "╚════════════════════════════════════════════════════════╝"
+echo ""
+
+# Set up environment
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export LD_LIBRARY_PATH=/lib:/usr/lib
+export HOME=/root
+export TERM=linux
+
+echo "[*] Mounting filesystems..."
+
+# Mount essential filesystems
+mount -t devtmpfs -o size=10M,nr_inodes=248418,mode=755 none /dev 2>/dev/null || \
+mount -t tmpfs -o size=10M,mode=755 none /dev
+mkdir -p /dev/pts /dev/mqueue /dev/shm
+
+mount -t devpts -o gid=4,mode=620 none /dev/pts 2>/dev/null || true
+mount -t proc none /proc 2>/dev/null || true
+mount -t sysfs none /sys 2>/dev/null || true
+mount -t tmpfs -o mode=1777 none /dev/shm 2>/dev/null || true
+mount -t tmpfs -o mode=1777 none /tmp 2>/dev/null || true
+mount -t tmpfs -o mode=755 none /run 2>/dev/null || true
+
+echo "[✓] Filesystems mounted"
+
+# Set hostname
+echo "lamp-os" > /proc/sys/kernel/hostname 2>/dev/null || true
+echo "[✓] Hostname set to: lamp-os"
+
+# Initialize devices
+echo "[*] Creating device nodes..."
+if [ ! -e /dev/console ]; then
+    mknod /dev/console c 5 1 2>/dev/null || true
+fi
+if [ ! -e /dev/null ]; then
+    mknod /dev/null c 1 3 2>/dev/null || true
+fi
+if [ ! -e /dev/zero ]; then
+    mknod /dev/zero c 1 5 2>/dev/null || true
+fi
+if [ ! -e /dev/tty ]; then
+    mknod /dev/tty c 5 0 2>/dev/null || true
+fi
+if [ ! -e /dev/random ]; then
+    mknod /dev/random c 1 8 2>/dev/null || true
+fi
+if [ ! -e /dev/urandom ]; then
+    mknod /dev/urandom c 1 9 2>/dev/null || true
+fi
+
+echo "[✓] Device nodes created"
+
+# Display system info
+echo "[*] System Information:"
+echo "    Kernel: $(uname -r 2>/dev/null || echo 'Unknown')"
+echo "    CPU Cores: $(grep -c '^processor' /proc/cpuinfo 2>/dev/null || echo '?')"
+echo "    Memory: $(free -h 2>/dev/null | grep Mem | awk '{print $2}' || echo '?')"
+
+echo ""
+echo "════════════════════════════════════════════════════════"
+echo "[✓] Lamp OS boot complete!"
+echo "════════════════════════════════════════════════════════"
+echo ""
+
+# Check if GUI is available
+if [ -f /opt/lamp-gui/lamp-gui ]; then
+    echo "[*] Starting Lamp OS GUI..."
+    exec /opt/lamp-gui/lamp-gui 2>/dev/null || \
+    exec /bin/sh -i -l
+else
+    echo "[*] GUI not found. Starting interactive shell..."
+    echo ""
+    echo "Available commands:"
+    /bin/busybox --list-all 2>/dev/null | head -20
+    echo "... and more (type 'busybox --list-all' for full list)"
+    echo ""
+    exec /bin/sh -i -l
+fi

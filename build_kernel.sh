@@ -1,0 +1,119 @@
+#!/bin/bash
+
+# Multi-architecture kernel build helper
+# Usage: TARGET_ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- ./build_kernel.sh
+
+set -e
+
+TARGET_ARCH=${TARGET_ARCH:-x86_64}
+CROSS_COMPILE=${CROSS_COMPILE:-}
+KERNEL_DIR="kernel/linux-6.6"
+JOBS=${JOBS:-$(nproc)}
+
+echo "Building kernel for ARCH=$TARGET_ARCH CROSS_COMPILE=${CROSS_COMPILE:-<native>}"
+
+if [ ! -d "$KERNEL_DIR" ]; then
+    echo "Kernel sources not found at $KERNEL_DIR. This script will NOT download the kernel automatically."
+    echo "Options:"
+    echo "  1) Place the kernel sources at $KERNEL_DIR and re-run this script to build locally (no network required)."
+    echo "  2) Build the kernel on a development machine and copy the resulting kernel image (e.g. vmlinuz) into ../../iso/boot/ as vmlinuz or vmlinuz-<arch>."
+    echo "  3) If you want automatic downloads, restore the previous behavior (not recommended for offline installers)."
+    exit 1
+fi
+
+pushd "$KERNEL_DIR" >/dev/null
+
+# Map some common ARCH names to kernel ARCH variables
+case "$TARGET_ARCH" in
+    x86_64|x86)
+        KERN_ARCH=x86
+        ;;
+    aarch64|arm64)
+        KERN_ARCH=arm64
+        ;;
+    arm)
+        KERN_ARCH=arm
+        ;;
+    mips)
+        KERN_ARCH=mips
+        ;;
+    ppc|powerpc)
+        KERN_ARCH=powerpc
+        ;;
+    riscv|riscv64)
+        KERN_ARCH=riscv
+        ;;
+    loongarch)
+        KERN_ARCH=loongarch
+        ;;
+    s390)
+        KERN_ARCH=s390
+        ;;
+    *)
+        echo "Unknown TARGET_ARCH: $TARGET_ARCH. Using as-is."
+        KERN_ARCH=$TARGET_ARCH
+        ;;
+esac
+
+export ARCH=$KERN_ARCH
+if [ -n "$CROSS_COMPILE" ]; then
+    export CROSS_COMPILE=$CROSS_COMPILE
+fi
+
+# Try to use a reasonable defconfig
+echo "Using ARCH=$ARCH"
+# Use explicit ARCH and CROSS_COMPILE environment for defconfig and build
+if [ -f "arch/$ARCH/configs/${ARCH}_defconfig" ]; then
+    echo "Found ${ARCH}_defconfig, using it"
+    make ARCH=$ARCH ${ARCH}_defconfig
+else
+    echo "Falling back to defconfig (explicit ARCH)
+    make ARCH=$ARCH defconfig"
+    make ARCH=$ARCH defconfig
+fi
+
+# Build (explicit ARCH + CROSS_COMPILE if set)
+if [ -n "$CROSS_COMPILE" ]; then
+    make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j${JOBS}
+else
+    make ARCH=$ARCH -j${JOBS}
+fi
+# Build appropriate packaged image for the architecture (avoid invalid targets like bzImage on arm64/riscv)
+case "$ARCH" in
+    x86|i386|i486|i586|i686)
+        make ARCH=$ARCH bzImage vmlinuz || true
+        ;;
+    arm64|aarch64|riscv)
+        make ARCH=$ARCH Image || true
+        ;;
+    *)
+        make ARCH=$ARCH vmlinux || true
+        ;;
+esac
+
+# Detect output kernel image
+KERNEL_IMAGE=""
+if [ -f "arch/$ARCH/boot/bzImage" ]; then
+    KERNEL_IMAGE="arch/$ARCH/boot/bzImage"
+elif [ -f "arch/$ARCH/boot/vmlinuz" ]; then
+    KERNEL_IMAGE="arch/$ARCH/boot/vmlinuz"
+elif [ -f "arch/$ARCH/boot/Image" ]; then
+    KERNEL_IMAGE="arch/$ARCH/boot/Image"
+elif [ -f "vmlinux" ]; then
+    KERNEL_IMAGE="vmlinux"
+fi
+
+if [ -n "$KERNEL_IMAGE" ]; then
+    echo "Kernel built: $KERNEL_IMAGE"
+    # Copy to project iso/boot with a generic name
+    mkdir -p ../../iso/boot
+    cp -v "$KERNEL_IMAGE" ../../iso/boot/vmlinuz-${TARGET_ARCH} || true
+    # Also make a symlink as vmlinuz
+    ln -sf vmlinuz-${TARGET_ARCH} ../../iso/boot/vmlinuz || true
+    popd >/dev/null
+    exit 0
+else
+    echo "Kernel build completed but no kernel image found. Check build logs."
+    popd >/dev/null
+    exit 1
+fi

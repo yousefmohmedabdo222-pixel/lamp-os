@@ -1,0 +1,18 @@
+[    4.413080] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(1,0)
+[    4.413233] CPU: 1 PID: 1 Comm: swapper/0 Not tainted 6.6.0-lamp #1
+[    4.413233] Hardware name: QEMU Ubuntu 24.04 PC (i440FX + PIIX, 1996), BIOS 1.16.3-debian-1.16.3-2 04/01/2014
+[    4.413233] Call Trace:
+[    4.413233]  <TASK>
+[    4.413233]  dump_stack_lvl+0x36/0x50
+[    4.413233]  panic+0x174/0x320
+[    4.413233]  mount_root_generic+0x295/0x2f0
+[    4.413233]  prepare_namespace+0x64/0x280
+[    4.413233]  kernel_init_freeable+0x28a/0x2d0
+[    4.413233]  ? __pfx_kernel_init+0x10/0x10
+[    4.413233]  kernel_init+0x15/0x1b0
+[    4.413233]  ret_from_fork+0x2f/0x50
+[    4.413233]  ? __pfx_kernel_init+0x10/0x10
+[    4.413233]  ret_from_fork_asm+0x1b/0x30
+[    4.413233]  </TASK>
+[    4.413233] Kernel Offset: 0x10200000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbfffffff)
+[    4.413233] ---[ end Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(1,0) ]---

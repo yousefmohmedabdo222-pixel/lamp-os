@@ -1,0 +1,116 @@
+name: Build multi-arch kernels
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ multi-arch-support ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-aarch64:
+    name: Build aarch64 kernel and commit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up apt cache and install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc bison flex libssl-dev libncurses-dev gcc-aarch64-linux-gnu git curl python3
+
+      - name: Show toolchain versions
+        run: |
+          gcc-aarch64-linux-gnu --version || true
+          make --version
+
+      - name: Build aarch64 kernel
+        env:
+          TARGET_ARCH: aarch64
+          CROSS_COMPILE: aarch64-linux-gnu-
+          JOBS: ${{ runner.cores }}
+        run: |
+          set -euo pipefail
+          ls -lah kernel || true
+          # Ensure kernel sources exist
+          if [ ! -d kernel/linux-6.6 ]; then
+            echo "Kernel sources not present in repo (kernel/linux-6.6). Cannot build." >&2
+            exit 1
+          fi
+          # Run build helper (it will use local sources only)
+          ./build_kernel.sh
+
+      - name: Verify built kernel
+        run: |
+          if [ -f iso/boot/vmlinuz-aarch64 ]; then
+            echo "vmlinuz-aarch64 found"
+            ls -lh iso/boot/vmlinuz-aarch64
+          else
+            echo "No vmlinuz-aarch64 found. Looking for other outputs..."
+            ls -lah iso/boot || true
+            exit 1
+          fi
+
+      - name: Commit kernel image back to branch
+        env:
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git config user.name "$GIT_COMMITTER_NAME"
+          git config user.email "$GIT_COMMITTER_EMAIL"
+          git add iso/boot/vmlinuz-aarch64 || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "ci: add built aarch64 kernel image (vmlinuz-aarch64)"
+            git push --force-with-lease origin HEAD:${{ github.ref_name }}
+          fi
+
+  build-riscv64:
+    name: Build riscv64 kernel and commit
+    runs-on: ubuntu-latest
+    needs: build-aarch64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install deps for riscv
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc bison flex libssl-dev libncurses-dev gcc-riscv64-linux-gnu
+
+      - name: Build riscv64 kernel
+        env:
+          TARGET_ARCH: riscv64
+          CROSS_COMPILE: riscv64-linux-gnu-
+          JOBS: ${{ runner.cores }}
+        run: |
+          set -euo pipefail
+          if [ ! -d kernel/linux-6.6 ]; then
+            echo "Kernel sources not present (kernel/linux-6.6). Skipping." && exit 0
+          fi
+          ./build_kernel.sh
+
+      - name: Verify and commit riscv kernel
+        run: |
+          if [ -f iso/boot/vmlinuz-riscv64 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add iso/boot/vmlinuz-riscv64 || true
+            if git diff --cached --quiet; then
+              echo "No changes to commit"
+            else
+              git commit -m "ci: add built riscv64 kernel image (vmlinuz-riscv64)"
+              git push --force-with-lease origin HEAD:${{ github.ref_name }}
+            fi
+          else
+            echo "No riscv64 kernel image produced; continuing" && true
+          fi
