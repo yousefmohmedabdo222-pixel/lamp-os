@@ -37,7 +37,15 @@ jobs:
           sudo ./scripts/make_rootfs_squash.sh /tmp/lamp-kde-rootfs /opt/rootfs.squashfs
           ./build.sh quick
 
+      - name: Upload debootstrap log (for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debootstrap-log
+          path: /tmp/lamp-kde-rootfs/debootstrap/debootstrap.log
+
       - name: Upload ISO artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: lamp-os-kde-iso
